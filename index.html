@@ -263,6 +263,9 @@ tbody tr:hover td{background:rgba(255,255,255,.025)}
     <div class="sb-item" onclick="navigate('recepciones')">
       <i class="fa-solid fa-box-open"></i> Recepciones
     </div>
+    <div class="sb-item" onclick="navigate('inventario')">
+      <i class="fa-solid fa-warehouse"></i> Inventario Actual
+    </div>
   </div>
 
   <div class="sb-section" id="nav-fin" style="display:none">
@@ -349,19 +352,11 @@ tbody tr:hover td{background:rgba(255,255,255,.025)}
           <input class="form-ctrl" id="r-cliente" placeholder="Nombre del cliente">
         </div>
       </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label">Tipo</label>
-          <select class="form-ctrl" id="r-tipo">
-            <option>Común</option><option>Específica</option><option>Mixta</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Prioridad</label>
-          <select class="form-ctrl" id="r-prioridad">
-            <option>Normal</option><option>Alta</option><option>Baja</option>
-          </select>
-        </div>
+      <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <select class="form-ctrl" id="r-tipo">
+          <option>Común</option><option>Específica</option>
+        </select>
       </div>
       <div class="form-grid">
         <div class="form-group">
@@ -408,6 +403,9 @@ tbody tr:hover td{background:rgba(255,255,255,.025)}
           <option value="">-- Seleccionar --</option>
         </select>
       </div>
+      <div class="form-group">
+        <div id="mat-precio-hint" style="font-size:10.5px;color:var(--t3);padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;min-height:28px;line-height:1.5"></div>
+      </div>
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Cantidad *</label>
@@ -416,6 +414,7 @@ tbody tr:hover td{background:rgba(255,255,255,.025)}
         <div class="form-group">
           <label class="form-label">Precio referencia (S/.)</label>
           <input class="form-ctrl" id="mat-precio" type="number" step="0.01" placeholder="0.00">
+          <div class="form-hint">Auto-completado con precio más bajo del catálogo</div>
         </div>
       </div>
     </div>
@@ -514,6 +513,213 @@ tbody tr:hover td{background:rgba(255,255,255,.025)}
   </div>
 </div>
 
+<!-- MODAL AGREGAR PRECIO (Proveedor / Admin) -->
+<div class="overlay" id="modal-nuevo-precio">
+  <div class="modal" style="width:480px">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-tag" style="color:var(--amber);margin-right:8px"></i>Agregar Precio al Catálogo</h3>
+      <button class="modal-close" onclick="closeModal('modal-nuevo-precio')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-bd">
+      <div style="font-size:11px;padding:8px 12px;background:var(--blue-dim);border:1px solid rgba(88,166,255,.3);border-radius:7px;color:var(--t2);margin-bottom:14px">
+        <i class="fa-solid fa-info-circle" style="color:var(--blue);margin-right:5px"></i>
+        El precio quedará disponible de inmediato en el catálogo para cotizaciones automáticas.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Material *</label>
+        <select class="form-ctrl" id="np-material">
+          <option value="">-- Seleccionar material --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Precio unitario (S/.) *</label>
+        <input class="form-ctrl" id="np-precio" type="number" step="0.01" min="0.01" placeholder="0.00">
+        <div class="form-hint" id="np-precio-ref"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Vigencia desde *</label>
+          <input class="form-ctrl" id="np-ini" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vigencia hasta *</label>
+          <input class="form-ctrl" id="np-fin" type="date">
+          <div class="form-hint">Máx. recomendado: 90 días</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas / condiciones</label>
+        <textarea class="form-ctrl" id="np-notas" rows="2" placeholder="Tiempo de entrega, cantidad mínima, condiciones especiales..."></textarea>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-precio')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarNuevoPrecio()"><i class="fa-solid fa-floppy-disk"></i> Publicar Precio</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE OC -->
+<div class="overlay" id="modal-detalle-oc">
+  <div class="modal" style="width:620px">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-file-invoice" style="color:var(--blue);margin-right:8px"></i>Detalle de Orden de Compra <span id="doc-oc-id" style="color:var(--t2);font-family:monospace;font-size:13px"></span></h3>
+      <button class="modal-close" onclick="closeModal('modal-detalle-oc')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-bd" id="modal-detalle-oc-body">
+      <div class="loader"><div class="spin"></div> Cargando...</div>
+    </div>
+    <div class="modal-ft" id="modal-detalle-oc-ft">
+      <button class="btn btn-ghost" onclick="closeModal('modal-detalle-oc')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE RECETA -->
+<div class="overlay" id="modal-detalle-receta">
+  <div class="modal" style="width:660px">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-clipboard-list" style="color:var(--purple);margin-right:8px"></i>Detalle de Receta <span id="doc-rec-id" style="color:var(--t2);font-family:monospace;font-size:13px"></span></h3>
+      <button class="modal-close" onclick="closeModal('modal-detalle-receta')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-bd" id="modal-rec-body">
+      <div class="loader"><div class="spin"></div> Cargando...</div>
+    </div>
+    <div class="modal-ft" id="modal-rec-ft">
+      <button class="btn btn-ghost" onclick="closeModal('modal-detalle-receta')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVA RECEPCIÓN (ESCANEAR GUÍA) -->
+<div class="overlay" id="modal-recepcion-scan">
+  <div class="modal" style="width:580px">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-barcode" style="color:var(--blue);margin-right:8px"></i>Nueva Recepción — Escanear Guía</h3>
+      <button class="modal-close" onclick="closeModal('modal-recepcion-scan')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-bd">
+      <!-- PASO 1: Ingresar OC -->
+      <div id="scan-step1">
+        <div style="background:var(--blue-dim);border:1px solid rgba(88,166,255,.3);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--t2)">
+          <i class="fa-solid fa-info-circle" style="color:var(--blue);margin-right:6px"></i>
+          Ingresa o escanea el ID de la Orden de Compra asociada a esta entrega.
+        </div>
+        <div class="form-group">
+          <label class="form-label">ID de Orden de Compra *</label>
+          <div style="display:flex;gap:8px">
+            <input class="form-ctrl" id="scan-oc-id" placeholder="Ej: OC-003" style="font-family:monospace;font-size:13px;letter-spacing:.5px" onkeydown="if(event.key==='Enter')validarOCScan()">
+            <button class="btn btn-primary" onclick="validarOCScan()"><i class="fa-solid fa-magnifying-glass"></i> Validar</button>
+          </div>
+          <div class="form-hint" id="scan-oc-hint"></div>
+        </div>
+      </div>
+      <!-- PASO 2: Items a recibir -->
+      <div id="scan-step2" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 14px;background:var(--green-dim);border:1px solid rgba(63,185,80,.3);border-radius:8px;font-size:12px">
+          <i class="fa-solid fa-circle-check" style="color:var(--green)"></i>
+          <span>OC <strong id="scan-oc-label"></strong> validada — registra la conformidad de cada ítem</span>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="document.getElementById('scan-step1').style.display='';document.getElementById('scan-step2').style.display='none'"><i class="fa-solid fa-arrow-left"></i> Cambiar OC</button>
+        </div>
+        <div class="tbl-wrap" style="margin-bottom:12px">
+          <table id="tbl-scan-items">
+            <thead><tr><th>Material</th><th>Cant. OC</th><th>Cant. Recibida</th><th>Conformidad</th></tr></thead>
+            <tbody id="scan-items-body"></tbody>
+          </table>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones generales</label>
+          <textarea class="form-ctrl" id="scan-obs" rows="2" placeholder="Daños, faltantes, empaque incorrecto..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeModal('modal-recepcion-scan')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-recepcion" style="display:none" onclick="guardarRecepcionWMS()"><i class="fa-solid fa-floppy-disk"></i> Registrar Recepción</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GENERAR RFQ -->
+<div class="overlay" id="modal-rfq">
+  <div class="modal" style="width:460px">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-file-signature" style="color:var(--purple);margin-right:8px"></i>Generar RFQ</h3>
+      <button class="modal-close" onclick="closeModal('modal-rfq')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-bd">
+      <input type="hidden" id="rfq-id-receta">
+      <div class="form-group">
+        <label class="form-label">Receta / Proyecto</label>
+        <div style="font-size:13px;font-weight:600;color:var(--t1)" id="rfq-proyecto-label"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Proveedor especializado *</label>
+        <select class="form-ctrl" id="rfq-proveedor">
+          <option value="">-- Seleccionar proveedor --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha límite de respuesta *</label>
+        <input class="form-ctrl" id="rfq-fecha" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Condiciones / especificaciones</label>
+        <textarea class="form-ctrl" id="rfq-condiciones" rows="3" placeholder="Especificaciones técnicas, plazos de entrega, condiciones de pago..."></textarea>
+      </div>
+      <div style="background:var(--amber-dim);border:1px solid rgba(210,153,34,.3);border-radius:8px;padding:10px 13px;font-size:11px;color:var(--t2)">
+        <i class="fa-solid fa-triangle-exclamation" style="color:var(--amber);margin-right:5px"></i>
+        Al confirmar, el estado de la receta cambiará a <strong>RFQ Enviada</strong> y se creará una cotización pendiente de respuesta.
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeModal('modal-rfq')">Cancelar</button>
+      <button class="btn btn-primary" style="background:rgba(188,140,255,.2);border-color:var(--purple);color:var(--purple)" onclick="confirmarRFQ()"><i class="fa-solid fa-paper-plane"></i> Enviar RFQ</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DESPACHAR A PLANTA -->
+<div class="overlay" id="modal-despachar">
+  <div class="modal" style="width:420px">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-dolly" style="color:var(--green);margin-right:8px"></i>Despachar a Planta</h3>
+      <button class="modal-close" onclick="closeModal('modal-despachar')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-bd">
+      <input type="hidden" id="despachar-id">
+      <div class="form-group">
+        <label class="form-label">Material</label>
+        <input class="form-ctrl" id="despachar-mat" readonly style="opacity:.7">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Stock disponible</label>
+        <div style="font-size:16px;font-weight:700;color:var(--blue)" id="despachar-stock-display">—</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cantidad a despachar *</label>
+        <input class="form-ctrl" id="despachar-cant" type="number" min="1" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Área destino *</label>
+        <select class="form-ctrl" id="despachar-area">
+          <option value="">-- Seleccionar área --</option>
+          <option>Producción</option>
+          <option>Planta Norte</option>
+          <option>Planta Sur</option>
+          <option>Mantenimiento</option>
+          <option>Control de Calidad</option>
+          <option>Almacén Secundario</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeModal('modal-despachar')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarDespacho()"><i class="fa-solid fa-check"></i> Confirmar Despacho</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOASTS -->
 <div id="toasts"></div>
 
@@ -572,38 +778,104 @@ function renderLoginDemo() {
         </div>`;
       }).join('')}
     </div>
+    <!-- Paso 2: seleccionar proveedor (solo visible cuando rol=Proveedor) -->
+    <div id="prov-picker" style="display:none;animation:fadeUp .25s ease;margin-bottom:6px;width:100%;max-width:860px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="height:1px;flex:1;background:var(--border)"></div>
+        <span style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;font-weight:600">¿Cuál es tu empresa?</span>
+        <div style="height:1px;flex:1;background:var(--border)"></div>
+      </div>
+      <div id="prov-cards" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px"></div>
+    </div>
     <button class="btn-login" id="btn-ingresar" disabled onclick="confirmarRolDemo()">
       <i class="fa-solid fa-arrow-right-to-bracket"></i> Ingresar como <span id="rol-selected-label">—</span>
     </button>
     <div class="login-demo-note">Modo demo — selecciona un rol para explorar el sistema</div>`;
 }
 
+const DEMO_PROVEEDORES = [
+  {id:'PROV-001',nombre:'Schneider Electric Perú S.A.',  contacto:'Ricardo Ponce',    email:'rponce@se.com',          nivel:'Gold',  score:96, tipo:'Comunes',         color:'#d29922',rgb:'210,153,34',  icon:'fa-bolt'},
+  {id:'PROV-002',nombre:'Legrand Perú S.A.C.',           contacto:'Fernando Salas',   email:'fsalas@legrand.pe',      nivel:'Silver',score:83, tipo:'Comunes',         color:'#8b949e',rgb:'139,148,158', icon:'fa-plug'},
+  {id:'PROV-003',nombre:'ABB S.A.C.',                    contacto:'Carmen Villanueva',email:'cvillanueva@abb.com',    nivel:'Gold',  score:93, tipo:'Específicos',      color:'#d29922',rgb:'210,153,34',  icon:'fa-microchip'},
+  {id:'PROV-004',nombre:'Rittal del Perú S.A.C.',        contacto:'Andrea Huanca',    email:'ahuanca@rittal.pe',      nivel:'Silver',score:79, tipo:'Específicos',      color:'#8b949e',rgb:'139,148,158', icon:'fa-server'},
+  {id:'PROV-005',nombre:'Intega Distribución S.A.C.',    contacto:'Luis Medina',      email:'lmedina@intega.pe',      nivel:'Bronze',score:71, tipo:'Comunes y Espec.',color:'#58a6ff',rgb:'88,166,255',   icon:'fa-store'},
+];
+
 let _rolDemo = null;
+let _proveedorDemo = null;
+
 function seleccionarRol(rol) {
   _rolDemo = rol;
+  _proveedorDemo = null;
   document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
   document.getElementById('rc-'+rol).classList.add('selected');
-  document.getElementById('btn-ingresar').disabled = false;
-  document.getElementById('rol-selected-label').textContent = rol;
+
+  const picker = document.getElementById('prov-picker');
+  const btnLabel = document.getElementById('rol-selected-label');
+  const btn = document.getElementById('btn-ingresar');
+
+  if (rol === 'Proveedor') {
+    // Mostrar selector de empresa proveedora
+    picker.style.display = '';
+    document.getElementById('prov-cards').innerHTML = DEMO_PROVEEDORES.map(p => `
+      <div id="pc-${p.id}" onclick="seleccionarProveedor('${p.id}')"
+        style="background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;transition:.2s;--pc:${p.color}">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(${p.rgb},.15);color:${p.color};display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 10px">
+          <i class="fa-solid ${p.icon}"></i>
+        </div>
+        <div style="font-size:11px;font-weight:700;line-height:1.3;margin-bottom:5px">${p.nombre}</div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:7px">${p.contacto}</div>
+        <div style="font-size:10px;padding:2px 8px;border-radius:20px;display:inline-block;background:rgba(${p.rgb},.1);color:${p.color};font-weight:600">${p.nivel} · ${p.score}pts</div>
+      </div>`).join('');
+    btn.disabled = true;
+    btnLabel.textContent = 'Proveedor';
+  } else {
+    picker.style.display = 'none';
+    btn.disabled = false;
+    btnLabel.textContent = rol;
+  }
+}
+
+function seleccionarProveedor(id) {
+  _proveedorDemo = DEMO_PROVEEDORES.find(p => p.id === id);
+  // Resaltar tarjeta seleccionada
+  document.querySelectorAll('[id^="pc-"]').forEach(el => {
+    const isSelected = el.id === 'pc-'+id;
+    el.style.borderColor   = isSelected ? _proveedorDemo.color : 'var(--border)';
+    el.style.background    = isSelected ? `rgba(${_proveedorDemo.rgb},.08)` : 'var(--bg2)';
+    el.style.transform     = isSelected ? 'translateY(-3px)' : '';
+    el.style.boxShadow     = isSelected ? `0 0 0 3px rgba(${_proveedorDemo.rgb},.18)` : '';
+  });
+  const btn = document.getElementById('btn-ingresar');
+  btn.disabled = false;
+  document.getElementById('rol-selected-label').textContent = _proveedorDemo.nombre;
 }
 
 function confirmarRolDemo() {
   if (!_rolDemo) return;
   const DEMO_USERS = {
-    'Operaciones': {id:'USR-001',nombre:'Carlos Mendoza',email:'compras@aclbest.com',rol:'Operaciones',idProveedor:''},
-    'Finanzas':    {id:'USR-002',nombre:'Ana Torres',    email:'finanzas@aclbest.com',rol:'Finanzas',idProveedor:''},
-    'Proveedor':   {id:'USR-003',nombre:'Luis Quispe',   email:'cquispe@diselec.com', rol:'Proveedor',idProveedor:'PROV-001'},
-    'Admin':       {id:'USR-004',nombre:'Jesús Vergaray',email:'admin@aclbest.com',   rol:'Admin',idProveedor:''},
+    'Operaciones': {id:'USR-001',nombre:'Carlos Mendoza',  email:'compras@aclbest.com', rol:'Operaciones',idProveedor:''},
+    'Finanzas':    {id:'USR-002',nombre:'Ana Torres',       email:'finanzas@aclbest.com',rol:'Finanzas',   idProveedor:''},
+    'Admin':       {id:'USR-004',nombre:'Jesús Vergaray',   email:'admin@aclbest.com',   rol:'Admin',      idProveedor:''},
   };
-  entrarSistema(_rolDemo, DEMO_USERS[_rolDemo]);
+  if (_rolDemo === 'Proveedor' && _proveedorDemo) {
+    entrarSistema('Proveedor', {
+      id: 'USR-PROV', nombre: _proveedorDemo.contacto,
+      email: _proveedorDemo.email, rol: 'Proveedor',
+      idProveedor: _proveedorDemo.id,
+      nombreEmpresa: _proveedorDemo.nombre,
+    });
+  } else {
+    entrarSistema(_rolDemo, DEMO_USERS[_rolDemo]);
+  }
 }
 
 function entrarSistema(rol, usuario) {
   S.user = usuario;
   // Actualizar sidebar con datos del usuario
-  document.getElementById('user-name').textContent = usuario.nombre;
-  document.getElementById('user-role').textContent = usuario.rol;
-  document.getElementById('user-avatar').textContent = usuario.nombre.charAt(0).toUpperCase();
+  document.getElementById('user-name').textContent = usuario.nombreEmpresa || usuario.nombre;
+  document.getElementById('user-role').textContent = usuario.rol === 'Proveedor' ? usuario.nombre : usuario.rol;
+  document.getElementById('user-avatar').textContent = (usuario.nombreEmpresa || usuario.nombre).charAt(0).toUpperCase();
   setupNav(usuario.rol);
 
   // Animar salida del login
@@ -621,6 +893,7 @@ function cerrarSesion() {
   S.user = null;
   S.matRows = [];
   _rolDemo = null;
+  _proveedorDemo = null;
   destroyCharts();
 
   // Limpiar nav (ocultar todas las secciones de rol)
@@ -681,6 +954,7 @@ function navigate(view) {
     proveedores: ['Proveedores','Gestión de proveedores fidelizados'],
     'catalogo-global': ['Catálogo Global','Todos los precios en catálogo'],
     configuracion: ['Parámetros del Sistema','Umbrales, emails y configuración general'],
+    inventario: ['Inventario Actual','Stock de materiales en almacén'],
   };
   const [t,s] = titles[view] || [view,''];
   document.getElementById('page-title').textContent = t;
@@ -702,8 +976,14 @@ function renderView(v) {
     case 'cotizaciones': renderCotizaciones(); break;
     case 'ordenes': renderOrdenes(null); break;
     case 'aprobar': renderAprobar(); break;
-    case 'recepciones': renderRecepciones(); break;
-    case 'catalogo': case 'catalogo-global': renderCatalogo(); break;
+    case 'recepciones':
+      actions.innerHTML = `<button class="btn btn-primary" onclick="abrirNuevaRecepcion()"><i class="fa-solid fa-barcode"></i> Nueva Recepción (Escanear Guía)</button>`;
+      renderRecepciones(); break;
+    case 'inventario': renderInventario(); break;
+    case 'catalogo': case 'catalogo-global':
+      if (S.user.rol==='Proveedor'||S.user.rol==='Admin')
+        actions.innerHTML = `<button class="btn btn-primary" onclick="abrirNuevoPrecio()"><i class="fa-solid fa-plus"></i> Agregar Precio</button>`;
+      renderCatalogo(); break;
     case 'mis-cotizaciones': renderCotizaciones(); break;
     case 'mis-ordenes': renderOrdenes(null); break;
     case 'proveedores': renderProveedores(); break;
@@ -782,18 +1062,24 @@ function renderRecetas() {
       </div>
       <div class="tbl-wrap">
         <table id="tbl-recetas">
-          <thead><tr><th>ID</th><th>Proyecto</th><th>Cliente</th><th>Tipo</th><th>Prioridad</th><th>Fecha req.</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>ID</th><th>Proyecto</th><th>Cliente</th><th>Tipo</th><th>Fecha req.</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>${rows.length ? rows.map(r=>`
             <tr>
               <td style="font-family:monospace;font-size:11px;color:var(--t2)">${r.ID_Receta}</td>
               <td style="font-weight:600">${r.Proyecto||'—'}</td>
               <td>${r.Cliente||'—'}</td>
               <td>${badgeTipo(r.Tipo_Receta)}</td>
-              <td>${badgePrioridad(r.Prioridad)}</td>
               <td style="color:var(--t2)">${r.Fecha_Requerida||'—'}</td>
               <td>${badgeEstadoReceta(r.Estado)}</td>
-              <td><button class="btn btn-ghost btn-sm" onclick="verDetalleReceta('${r.ID_Receta}')"><i class="fa-solid fa-eye"></i></button></td>
-            </tr>`).join('') : `<tr><td colspan="8" class="tbl-empty"><i class="fa-solid fa-inbox"></i>Sin recetas registradas</td></tr>`}
+              <td style="display:flex;gap:4px;align-items:center">
+                <button class="btn btn-ghost btn-sm" onclick="verDetalleReceta('${r.ID_Receta}')"><i class="fa-solid fa-eye"></i></button>
+                ${r.Tipo_Receta==='Específica' && r.Estado==='Recibida'
+                  ? `<button class="btn btn-sm" style="background:rgba(188,140,255,.15);border-color:var(--purple);color:var(--purple)" onclick="abrirRFQ('${r.ID_Receta}','${(r.Proyecto||'').replace(/'/g,"\\'")}')"><i class="fa-solid fa-file-signature"></i> RFQ</button>`
+                  : r.Tipo_Receta==='Común' && r.Estado==='Recibida'
+                    ? `<span style="font-size:10px;color:var(--blue);white-space:nowrap"><i class="fa-solid fa-robot"></i> OC auto</span>`
+                    : ''}
+              </td>
+            </tr>`).join('') : `<tr><td colspan="7" class="tbl-empty"><i class="fa-solid fa-inbox"></i>Sin recetas registradas</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -810,8 +1096,13 @@ function renderCotizaciones() {
         <span class="card-title">Cotizaciones</span>
         <div style="display:flex;gap:8px;align-items:center">
           <span style="font-size:11px;color:var(--green)"><i class="fa-solid fa-bolt"></i> ${rows.filter(r=>r.Es_Auto_Generada==='TRUE').length} auto-generadas</span>
+          <span style="font-size:11px;color:var(--blue)"><i class="fa-solid fa-robot"></i> ${rows.filter(r=>r.Estado==='Auto-aceptada').length} JIT auto-aceptadas</span>
           <div class="search-box"><i class="fa-solid fa-search"></i><input placeholder="Buscar..." oninput="filterTable(this,'tbl-cot')" /></div>
         </div>
+      </div>
+      <div style="margin:0 0 12px 0;padding:10px 14px;background:var(--blue-dim);border:1px solid rgba(88,166,255,.25);border-radius:var(--radius);font-size:11.5px;color:var(--t2);display:flex;align-items:center;gap:8px">
+        <i class="fa-solid fa-robot" style="color:var(--blue);font-size:14px"></i>
+        <span><strong style="color:var(--t1)">Regla JIT activa:</strong> Las cotizaciones auto-generadas para materiales <strong>Comunes</strong> con proveedores <strong>Gold / Silver</strong> y precio vigente en catálogo se aceptan automáticamente y generan una OC sin intervención humana.</span>
       </div>
       <div class="tbl-wrap">
         <table id="tbl-cot">
@@ -827,7 +1118,9 @@ function renderCotizaciones() {
               <td>${r.Es_Auto_Generada==='TRUE'?'<span class="badge b-green"><i class="fa-solid fa-bolt"></i>Auto</span>':'<span class="badge b-gray">Manual</span>'}</td>
               <td>${badgeEstadoCot(r.Estado)}</td>
               <td>
-                ${r.Estado==='Pendiente confirmación' && (S.user.rol==='Operaciones'||S.user.rol==='Admin') ? `
+                ${r.Estado==='Auto-aceptada'
+                  ? `<span style="font-size:10px;color:var(--blue)"><i class="fa-solid fa-robot"></i> OC generada auto.</span>`
+                  : r.Estado==='Pendiente confirmación' && (S.user.rol==='Operaciones'||S.user.rol==='Admin') ? `
                   <button class="btn btn-success btn-sm" onclick="aceptarCot('${r.ID_Cotización}')"><i class="fa-solid fa-check"></i></button>
                   <button class="btn btn-danger btn-sm" onclick="rechazarCot('${r.ID_Cotización}')"><i class="fa-solid fa-xmark"></i></button>
                 ` : '—'}
@@ -857,7 +1150,7 @@ function renderOrdenes(filtro) {
 function tablaOC(rows, id='tbl-oc-dash', actions=false) {
   if (!rows||!rows.length) return `<div class="tbl-empty"><i class="fa-solid fa-inbox"></i>Sin órdenes</div>`;
   return `<table id="${id}">
-    <thead><tr><th>OC</th><th>Proveedor</th><th>Monto</th><th>Fecha</th><th>Aprobación</th><th>Estado</th>${actions?'<th>Acciones</th>':''}</tr></thead>
+    <thead><tr><th>OC</th><th>Proveedor</th><th>Monto</th><th>Fecha</th><th>Aprobación</th><th>Estado</th><th>Acciones</th></tr></thead>
     <tbody>${rows.map(r=>`
       <tr>
         <td style="font-family:monospace;font-size:11px;color:var(--t2)">${r.ID_OC}</td>
@@ -866,12 +1159,15 @@ function tablaOC(rows, id='tbl-oc-dash', actions=false) {
         <td style="color:var(--t2)">${r.Fecha_Generación||'—'}</td>
         <td>${badgeAprobacion(r.Estado_Aprobación)}</td>
         <td>${badgeEstadoOC(r.Estado_General)}</td>
-        ${actions?`<td>
-          ${r.Estado_Aprobación==='Pendiente'&&(S.user.rol==='Finanzas'||S.user.rol==='Admin')?`
-            <button class="btn btn-success btn-sm" onclick="aprobarOC('${r.ID_OC}')"><i class="fa-solid fa-check"></i> Aprobar</button>
-            <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="abrirRechazar('${r.ID_OC}')"><i class="fa-solid fa-xmark"></i></button>
-          `:'—'}
-        </td>`:''}
+        <td>
+          <div style="display:flex;gap:4px;align-items:center">
+            <button class="btn btn-ghost btn-sm" onclick="verDetalleOC('${r.ID_OC}')" title="Ver detalle"><i class="fa-solid fa-eye"></i></button>
+            ${actions && r.Estado_Aprobación==='Pendiente'&&(S.user.rol==='Finanzas'||S.user.rol==='Admin')?`
+              <button class="btn btn-success btn-sm" onclick="aprobarOC('${r.ID_OC}')"><i class="fa-solid fa-check"></i> Aprobar</button>
+              <button class="btn btn-danger btn-sm" onclick="abrirRechazar('${r.ID_OC}')"><i class="fa-solid fa-xmark"></i></button>
+            `:''}
+          </div>
+        </td>
       </tr>`).join('')}
     </tbody>
   </table>`;
@@ -927,7 +1223,23 @@ function renderRecepciones() {
 function renderCatalogo() {
   callServer('getCatalogo', {}, rows => {
     const isProv = S.user.rol === 'Proveedor';
+    // Calcular precio mínimo vigente por material (para resaltar más barato)
+    const minPrecio = {};
+    rows.filter(r=>r.Estado_Vigencia==='Vigente').forEach(r => {
+      const p = parseFloat(r.Precio_Unitario||0);
+      if (!minPrecio[r.Nombre_Material] || p < minPrecio[r.Nombre_Material]) minPrecio[r.Nombre_Material] = p;
+    });
+    // Contar cuántos proveedores vigentes hay por material
+    const countVig = {};
+    rows.filter(r=>r.Estado_Vigencia==='Vigente').forEach(r => {
+      countVig[r.Nombre_Material] = (countVig[r.Nombre_Material]||0)+1;
+    });
+
     document.getElementById('content').innerHTML = `
+    ${!isProv ? `<div style="margin-bottom:12px;padding:10px 14px;background:var(--green-dim);border:1px solid rgba(63,185,80,.3);border-radius:var(--radius);font-size:12px;color:var(--t2);display:flex;align-items:center;gap:8px">
+      <i class="fa-solid fa-robot" style="color:var(--green)"></i>
+      <span>Los precios marcados con <strong style="color:var(--green)">🏆 Precio más bajo</strong> son seleccionados automáticamente al generar una OC desde una receta de materiales.</span>
+    </div>` : ''}
     <div class="card">
       <div class="card-hd">
         <span class="card-title">${isProv?'Mi catálogo de precios':'Catálogo global de precios'}</span>
@@ -936,17 +1248,22 @@ function renderCatalogo() {
       <div class="tbl-wrap">
         <table id="tbl-cat">
           <thead><tr><th>Material</th>${!isProv?'<th>Proveedor</th>':''}<th>Precio Unit.</th><th>Vigencia hasta</th><th>Vigencia</th><th>Estado</th><th>Actualizado</th><th>Acción</th></tr></thead>
-          <tbody>${rows.length ? rows.map(r=>`
-            <tr>
-              <td style="font-weight:600">${r.Nombre_Material||'—'}</td>
+          <tbody>${rows.length ? rows.map(r=>{
+            const precio = parseFloat(r.Precio_Unitario||0);
+            const esMasBarato = r.Estado_Vigencia==='Vigente' && precio===minPrecio[r.Nombre_Material] && countVig[r.Nombre_Material]>1;
+            const bgRow = esMasBarato ? 'background:rgba(63,185,80,.04)' : '';
+            return `
+            <tr style="${bgRow}">
+              <td style="font-weight:600">${r.Nombre_Material||'—'}${esMasBarato?'<div style="font-size:10px;color:var(--green);margin-top:2px"><i class="fa-solid fa-trophy"></i> Precio más bajo</div>':''}</td>
               ${!isProv?`<td>${r.Nombre_Proveedor||'—'}</td>`:''}
-              <td style="font-weight:700;color:var(--blue)">S/. ${parseFloat(r.Precio_Unitario||0).toFixed(2)}</td>
+              <td style="font-weight:700;color:${esMasBarato?'var(--green)':'var(--blue)'}">S/. ${precio.toFixed(2)}</td>
               <td style="color:var(--t2)">${r.Fecha_Vigencia_Fin||'—'}</td>
               <td>${vigenciaBar(r.Fecha_Vigencia_Inicio, r.Fecha_Vigencia_Fin)}</td>
               <td>${r.Estado_Vigencia==='Vigente'?'<span class="badge b-green">Vigente</span>':r.Estado_Vigencia==='Vencido'?'<span class="badge b-red">Vencido</span>':'<span class="badge b-gray">Suspendido</span>'}</td>
               <td style="color:var(--t2);font-size:11px">${r.Última_Actualización||'—'}</td>
               <td>${(isProv||S.user.rol==='Admin')?`<button class="btn btn-ghost btn-sm" onclick="abrirPrecio('${r.ID_Precio}','${(r.Nombre_Material||'').replace(/'/g,'')}',${r.Precio_Unitario||0})"><i class="fa-solid fa-pen"></i></button>`:'—'}</td>
-            </tr>`).join('') : `<tr><td colspan="8" class="tbl-empty"><i class="fa-solid fa-tags"></i>Sin precios en catálogo</td></tr>`}
+            </tr>`;
+          }).join('') : `<tr><td colspan="8" class="tbl-empty"><i class="fa-solid fa-tags"></i>Sin precios en catálogo</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -1062,7 +1379,28 @@ function openAddMaterial() {
 
 function onMatSel() {
   const opt = document.getElementById('mat-sel').selectedOptions[0];
-  if(opt&&opt.value) document.getElementById('mat-precio').value = opt.dataset.precio||'';
+  if (!opt||!opt.value) return;
+  document.getElementById('mat-precio').value = opt.dataset.precio||'';
+  // Buscar precio más bajo en catálogo vigente para este material
+  callServer('getCatalogo', {}, catalogo => {
+    const nombre = opt.dataset.nombre||'';
+    const vigentes = catalogo.filter(c => c.Nombre_Material===nombre && c.Estado_Vigencia==='Vigente');
+    const hint = document.getElementById('mat-precio-hint');
+    if (vigentes.length > 0) {
+      const mejorPrecio = vigentes.reduce((a,b)=>parseFloat(a.Precio_Unitario)<parseFloat(b.Precio_Unitario)?a:b);
+      document.getElementById('mat-precio').value = parseFloat(mejorPrecio.Precio_Unitario).toFixed(2);
+      if (hint) {
+        if (vigentes.length > 1) {
+          const otros = vigentes.filter(c=>c.ID_Precio!==mejorPrecio.ID_Precio).map(c=>`${c.Nombre_Proveedor}: S/. ${parseFloat(c.Precio_Unitario).toFixed(2)}`).join(' | ');
+          hint.innerHTML = `<i class="fa-solid fa-trophy" style="color:var(--green)"></i> Auto-seleccionado: <strong style="color:var(--green)">${mejorPrecio.Nombre_Proveedor} — S/. ${parseFloat(mejorPrecio.Precio_Unitario).toFixed(2)}</strong> (precio más bajo) &nbsp;·&nbsp; <span style="color:var(--t3)">Otros: ${otros}</span>`;
+        } else {
+          hint.innerHTML = `<i class="fa-solid fa-tag" style="color:var(--blue)"></i> Precio catálogo: <strong>${mejorPrecio.Nombre_Proveedor}</strong> — S/. ${parseFloat(mejorPrecio.Precio_Unitario).toFixed(2)}`;
+        }
+      }
+    } else {
+      if (hint) hint.innerHTML = `<i class="fa-solid fa-exclamation-triangle" style="color:var(--amber)"></i> Sin precio vigente en catálogo — ingresa precio de referencia manualmente.`;
+    }
+  });
 }
 
 function addMaterialToList() {
@@ -1096,7 +1434,7 @@ function guardarReceta() {
   const fecha = document.getElementById('r-fecha').value;
   if(!proy||!cli||!fecha) { toast('Completa los campos obligatorios (*)','err'); return; }
   if(!S.matRows.length) { toast('Agrega al menos un material','err'); return; }
-  const receta = { proyecto:proy, cliente:cli, area:document.getElementById('r-area').value, tipo:document.getElementById('r-tipo').value, prioridad:document.getElementById('r-prioridad').value, fechaRequerida:fecha, observaciones:document.getElementById('r-obs').value };
+  const receta = { proyecto:proy, cliente:cli, area:document.getElementById('r-area').value, tipo:document.getElementById('r-tipo').value, fechaRequerida:fecha, observaciones:document.getElementById('r-obs').value };
   callServer('crearReceta', {receta, detalles:S.matRows}, r => {
     toast(r.ok?'Receta creada: '+r.idReceta:'Error al crear','r.ok?ok:err');
     closeModal('modal-receta');
@@ -1106,7 +1444,70 @@ function guardarReceta() {
 }
 
 function verDetalleReceta(id) {
-  toast('Cargando detalle de '+id,'info');
+  document.getElementById('modal-rec-body').innerHTML = '<div class="loader"><div class="spin"></div> Cargando...</div>';
+  document.getElementById('doc-rec-id').textContent = id;
+  document.getElementById('modal-rec-ft').innerHTML = '<button class="btn btn-ghost" onclick="closeModal(\'modal-detalle-receta\')">Cerrar</button>';
+  openModal('modal-detalle-receta');
+  callServer('getRecetas', {}, recetas => {
+    const rec = recetas.find(r => r.ID_Receta === id);
+    if (!rec) { document.getElementById('modal-rec-body').innerHTML = '<p style="color:var(--red)">Receta no encontrada.</p>'; return; }
+    callServer('getItemsReceta', {idReceta: id}, items => {
+      callServer('getCatalogo', {}, catalogo => {
+        // Precio mínimo vigente por material + proveedor ganador
+        const vigentes = catalogo.filter(c => c.Estado_Vigencia === 'Vigente');
+        const minMap = {};
+        vigentes.forEach(c => {
+          const p = parseFloat(c.Precio_Unitario);
+          if (!minMap[c.Nombre_Material] || p < minMap[c.Nombre_Material].precio)
+            minMap[c.Nombre_Material] = {precio: p, proveedor: c.Nombre_Proveedor};
+        });
+        let total = 0;
+        const rows = items.map(it => {
+          const best = minMap[it.Nombre_Material];
+          const precio = best ? best.precio : 0;
+          const subtotal = precio * it.Cantidad;
+          total += subtotal;
+          const competidores = vigentes.filter(c => c.Nombre_Material === it.Nombre_Material);
+          const hayComp = competidores.length > 1;
+          return `<tr>
+            <td style="font-weight:500">${it.Nombre_Material}</td>
+            <td style="text-align:center">${it.Cantidad}</td>
+            <td style="color:var(--t2)">${it.Unidad}</td>
+            <td>
+              <span style="color:var(--green);font-weight:600">S/. ${precio.toFixed(2)}</span>
+              <div style="font-size:10px;color:var(--t3)">${best ? best.proveedor : '—'}${hayComp ? ' <span style="color:var(--amber)">★ mejor precio</span>' : ''}</div>
+            </td>
+            <td style="text-align:right;font-weight:600">S/. ${subtotal.toFixed(2)}</td>
+          </tr>`;
+        }).join('');
+        document.getElementById('modal-rec-body').innerHTML = `
+          <div style="background:var(--bg3);border-radius:8px;padding:14px 16px;margin-bottom:16px">
+            <div style="font-size:15px;font-weight:700;margin-bottom:10px">${rec.Proyecto}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:var(--t1)">
+              <div><span style="color:var(--t2)">Cliente: </span>${rec.Cliente}</div>
+              <div><span style="color:var(--t2)">Tipo: </span>${badgeTipo(rec.Tipo_Receta)}</div>
+              <div><span style="color:var(--t2)">Fecha requerida: </span><b>${rec.Fecha_Requerida}</b></div>
+              <div><span style="color:var(--t2)">Estado: </span>${badgeEstadoReceta(rec.Estado)}</div>
+            </div>
+          </div>
+          <div style="font-size:10.5px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Lista de Materiales</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Material</th><th style="text-align:center">Cant.</th><th>Unidad</th><th>Mejor Precio (catálogo)</th><th style="text-align:right">Subtotal</th></tr></thead>
+              <tbody>${rows||'<tr><td colspan="5" class="tbl-empty">Sin materiales registrados</td></tr>'}</tbody>
+            </table>
+          </div>
+          <div style="text-align:right;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <span style="color:var(--t2);font-size:12px">Total estimado (mejor precio): </span>
+            <span style="font-size:18px;font-weight:700;color:var(--green)">S/. ${total.toFixed(2)}</span>
+          </div>`;
+        const esEspecificaRecibida = rec.Tipo_Receta === 'Específica' && rec.Estado === 'Recibida';
+        document.getElementById('modal-rec-ft').innerHTML = `
+          <button class="btn btn-ghost" onclick="closeModal('modal-detalle-receta')">Cerrar</button>
+          ${esEspecificaRecibida ? `<button class="btn btn-primary" onclick="closeModal('modal-detalle-receta');abrirRFQ('${rec.ID_Receta}','${(rec.Proyecto||'').replace(/'/g,"\\'")}')"><i class="fa-solid fa-file-signature"></i> Generar RFQ</button>` : ''}`;
+      });
+    });
+  });
 }
 
 // ── CONFIGURACIÓN (Admin) ──
@@ -1273,14 +1674,14 @@ function vigenciaBar(ini,fin) {
 }
 
 // BADGE helpers
-function badgeTipo(v) { return v==='Común'?'<span class="badge b-blue">Común</span>':v==='Específica'?'<span class="badge b-purple">Específica</span>':'<span class="badge b-amber">Mixta</span>'; }
-function badgePrioridad(v) { return v==='Alta'?'<span class="badge b-red">Alta</span>':v==='Baja'?'<span class="badge b-gray">Baja</span>':'<span class="badge b-blue">Normal</span>'; }
+function badgeTipo(v) { return v==='Común'?'<span class="badge b-blue">Común</span>':'<span class="badge b-purple">Específica</span>'; }
 function badgeEstadoReceta(v) {
   const m = {'Recibida':'b-gray','En proceso':'b-blue','RFQ Enviada':'b-amber','Cotización Recibida':'b-purple','OC Generada':'b-blue','Completada':'b-green','Cancelada':'b-red'};
   return `<span class="badge ${m[v]||'b-gray'}">${v||'—'}</span>`;
 }
 function badgeEstadoCot(v) {
-  const m = {'Pendiente confirmación':'b-amber','Aceptada':'b-green','Rechazada':'b-red','Vencida':'b-gray'};
+  if (v==='Auto-aceptada') return `<span class="badge b-green"><i class="fa-solid fa-bolt"></i> Auto-aceptada</span>`;
+  const m = {'Pendiente confirmación':'b-amber','Pendiente de respuesta':'b-purple','Aceptada':'b-green','Rechazada':'b-red','Vencida':'b-gray'};
   return `<span class="badge ${m[v]||'b-gray'}">${v||'—'}</span>`;
 }
 function badgeAprobacion(v) {
@@ -1311,6 +1712,307 @@ function destroyCharts() {
   S.charts = {};
 }
 
+// ── DETALLE OC ──
+function verDetalleOC(id) {
+  document.getElementById('doc-oc-id').textContent = id;
+  document.getElementById('modal-detalle-oc-body').innerHTML = '<div class="loader"><div class="spin"></div> Cargando...</div>';
+  openModal('modal-detalle-oc');
+  callServer('getDetalleOC', {idOC: id}, detalle => {
+    const oc = detalle.oc || {};
+    const items = detalle.items || [];
+    const total = items.reduce((s,it)=>s+(parseFloat(it.Precio_Unitario||0)*parseFloat(it.Cantidad||0)),0);
+    const canAprobar = oc.Estado_Aprobación==='Pendiente' && (S.user.rol==='Finanzas'||S.user.rol==='Admin');
+
+    document.getElementById('modal-detalle-oc-body').innerHTML = `
+      <div class="form-grid" style="margin-bottom:14px">
+        <div>
+          <div class="form-label">Proveedor</div>
+          <div style="font-size:13px;font-weight:600">${oc.Nombre_Proveedor||'—'}</div>
+        </div>
+        <div>
+          <div class="form-label">Fecha generación</div>
+          <div style="font-size:13px">${oc.Fecha_Generación||'—'}</div>
+        </div>
+        <div>
+          <div class="form-label">Estado aprobación</div>
+          ${badgeAprobacion(oc.Estado_Aprobación)}
+        </div>
+        <div>
+          <div class="form-label">Estado general</div>
+          ${badgeEstadoOC(oc.Estado_General)}
+        </div>
+      </div>
+      <hr style="border-color:var(--border);margin-bottom:14px">
+      <div class="form-label" style="margin-bottom:8px">Ítems de la OC</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Material</th><th>Unidad</th><th>Cantidad</th><th>Precio Unit.</th><th>Subtotal</th></tr></thead>
+          <tbody>${items.length ? items.map(it=>`
+            <tr>
+              <td style="font-weight:600">${it.Nombre_Material||'—'}</td>
+              <td style="color:var(--t2)">${it.Unidad||'—'}</td>
+              <td style="text-align:center">${it.Cantidad}</td>
+              <td>S/. ${parseFloat(it.Precio_Unitario||0).toFixed(2)}</td>
+              <td style="font-weight:700;color:var(--blue)">S/. ${(parseFloat(it.Precio_Unitario||0)*parseFloat(it.Cantidad||0)).toFixed(2)}</td>
+            </tr>`).join('')
+          : `<tr><td colspan="5" class="tbl-empty"><i class="fa-solid fa-inbox"></i>Sin ítems registrados</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <div style="text-align:right;margin-top:12px;padding:10px 14px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+        <span style="font-size:12px;color:var(--t2)">TOTAL OC &nbsp;</span>
+        <span style="font-size:18px;font-weight:700;color:var(--blue)">S/. ${(oc.Monto_Total||total).toLocaleString('es-PE',{minimumFractionDigits:2})}</span>
+      </div>
+      ${oc.Observaciones ? `<div style="margin-top:10px;font-size:11px;color:var(--t2);padding:8px 12px;background:var(--bg4);border-radius:6px"><i class="fa-solid fa-comment" style="margin-right:5px"></i>${oc.Observaciones}</div>` : ''}`;
+
+    // Actualizar footer con botones de aprobación si aplica
+    document.getElementById('modal-detalle-oc-ft').innerHTML = `
+      <button class="btn btn-ghost" onclick="closeModal('modal-detalle-oc')">Cerrar</button>
+      ${canAprobar ? `
+        <button class="btn btn-success" onclick="aprobarOC('${id}');closeModal('modal-detalle-oc')"><i class="fa-solid fa-check"></i> Aprobar OC</button>
+        <button class="btn btn-danger" onclick="closeModal('modal-detalle-oc');abrirRechazar('${id}')"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+      ` : ''}`;
+  });
+}
+
+// ── INVENTARIO ──
+function renderInventario() {
+  callServer('getInventario', {}, rows => {
+    const c = document.getElementById('content');
+    c.innerHTML = `
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+      <div class="stat-card"><div class="stat-top"><span class="stat-label">Ítems Óptimo</span><div class="stat-icon" style="background:var(--green-dim);color:var(--green)"><i class="fa-solid fa-circle-check"></i></div></div><div class="stat-val" style="color:var(--green)">${rows.filter(r=>r.Nivel==='Óptimo').length}</div><div class="stat-foot">Stock suficiente</div></div>
+      <div class="stat-card"><div class="stat-top"><span class="stat-label">Nivel Bajo</span><div class="stat-icon" style="background:var(--amber-dim);color:var(--amber)"><i class="fa-solid fa-triangle-exclamation"></i></div></div><div class="stat-val" style="color:var(--amber)">${rows.filter(r=>r.Nivel==='Bajo').length}</div><div class="stat-foot">Reabastecimiento pronto</div></div>
+      <div class="stat-card"><div class="stat-top"><span class="stat-label">Stock Crítico</span><div class="stat-icon" style="background:var(--red-dim);color:var(--red)"><i class="fa-solid fa-circle-exclamation"></i></div></div><div class="stat-val" style="color:var(--red)">${rows.filter(r=>r.Nivel==='Crítico').length}</div><div class="stat-foot">Requiere OC urgente</div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title"><i class="fa-solid fa-warehouse" style="color:var(--blue);margin-right:6px"></i>Stock actual de materiales</span>
+        <div class="search-box"><i class="fa-solid fa-search"></i><input placeholder="Buscar..." oninput="filterTable(this,'tbl-inv')" /></div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="tbl-inv">
+          <thead><tr><th>ID</th><th>Material</th><th>Categoría</th><th>Stock</th><th>Unidad</th><th>Nivel de Seguridad</th><th>Acción</th></tr></thead>
+          <tbody>${rows.length ? rows.map(r => {
+            const pct = Math.min(100, Math.round((r.Cantidad / (r.StockMax||r.Cantidad||1)) * 100));
+            const col = r.Nivel==='Óptimo'?'var(--green)':r.Nivel==='Bajo'?'var(--amber)':'var(--red)';
+            const badgeNiv = r.Nivel==='Óptimo'?'b-green':r.Nivel==='Bajo'?'b-amber':'b-red';
+            return `<tr>
+              <td style="font-family:monospace;font-size:11px;color:var(--t2)">${r.ID_Material}</td>
+              <td style="font-weight:600">${r.Nombre}</td>
+              <td>${r.Categoría||'—'}</td>
+              <td style="font-weight:700;color:var(--blue)">${r.Cantidad}</td>
+              <td style="color:var(--t2)">${r.Unidad}</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="badge ${badgeNiv}">${r.Nivel}</span>
+                  <div class="progress" style="width:60px"><div class="progress-bar" style="width:${pct}%;background:${col}"></div></div>
+                </div>
+              </td>
+              <td><button class="btn btn-success btn-sm" onclick="abrirDespachar('${r.ID_Material}','${r.Nombre.replace(/'/g,"\\'")}',${r.Cantidad})"><i class="fa-solid fa-dolly"></i> Despachar</button></td>
+            </tr>`;
+          }).join('') : `<tr><td colspan="7" class="tbl-empty"><i class="fa-solid fa-warehouse"></i>Sin datos de inventario</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  });
+}
+
+// ── RECEPCIÓN WMS ──
+function abrirNuevaRecepcion() {
+  document.getElementById('scan-oc-id').value = '';
+  document.getElementById('scan-oc-hint').textContent = '';
+  document.getElementById('scan-obs').value = '';
+  document.getElementById('scan-step1').style.display = '';
+  document.getElementById('scan-step2').style.display = 'none';
+  document.getElementById('btn-guardar-recepcion').style.display = 'none';
+  openModal('modal-recepcion-scan');
+}
+
+function validarOCScan() {
+  const id = document.getElementById('scan-oc-id').value.trim().toUpperCase();
+  if (!id) { toast('Ingresa un ID de OC','err'); return; }
+  const hint = document.getElementById('scan-oc-hint');
+  hint.textContent = '';
+  callServer('getItemsOC', {idOC: id}, items => {
+    if (!items || !items.length) {
+      hint.style.color = 'var(--red)';
+      hint.textContent = `OC "${id}" no encontrada o sin ítems pendientes de recepción.`;
+      return;
+    }
+    document.getElementById('scan-oc-label').textContent = id;
+    document.getElementById('scan-step1').style.display = 'none';
+    document.getElementById('scan-step2').style.display = '';
+    document.getElementById('btn-guardar-recepcion').style.display = '';
+    const tbody = document.getElementById('scan-items-body');
+    tbody.innerHTML = items.map((it, i) => `
+      <tr>
+        <td style="font-weight:600">${it.Nombre_Material}</td>
+        <td style="text-align:center">${it.Cantidad} ${it.Unidad||''}</td>
+        <td><input type="number" class="form-ctrl" id="cant-rec-${i}" min="0" max="${it.Cantidad}" value="${it.Cantidad}" style="width:80px;text-align:center"></td>
+        <td>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="radio" name="conf-${i}" value="SI" checked> <span style="color:var(--green)">Conforme</span></label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="radio" name="conf-${i}" value="Parcial"> <span style="color:var(--amber)">Parcial</span></label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="radio" name="conf-${i}" value="NO"> <span style="color:var(--red)">Rechazado</span></label>
+          </div>
+        </td>
+      </tr>`).join('');
+    // Guardar los items en estado temporal
+    S._scanOC = { id, items };
+  });
+}
+
+function guardarRecepcionWMS() {
+  if (!S._scanOC) return;
+  const obs = document.getElementById('scan-obs').value.trim();
+  const recepciones = S._scanOC.items.map((it, i) => ({
+    idOC: S._scanOC.id,
+    idMaterial: it.ID_Material,
+    cantidadOC: it.Cantidad,
+    cantidadRecibida: parseFloat(document.getElementById('cant-rec-'+i)?.value)||0,
+    conforme: document.querySelector(`input[name="conf-${i}"]:checked`)?.value||'SI',
+    observacion: obs,
+  }));
+  callServer('registrarRecepcion', {recepciones}, r => {
+    if (r.ok) {
+      toast('Recepción registrada correctamente ('+recepciones.length+' ítems)', 'ok');
+      closeModal('modal-recepcion-scan');
+      S._scanOC = null;
+      renderView('recepciones');
+    } else {
+      toast('Error al registrar recepción', 'err');
+    }
+  });
+}
+
+// ── RFQ ──
+function abrirRFQ(idReceta, proyecto) {
+  document.getElementById('rfq-id-receta').value = idReceta;
+  document.getElementById('rfq-proyecto-label').textContent = proyecto || idReceta;
+  document.getElementById('rfq-condiciones').value = '';
+  document.getElementById('rfq-fecha').value = '';
+  // Cargar proveedores
+  callServer('getProveedores', {}, provs => {
+    const sel = document.getElementById('rfq-proveedor');
+    sel.innerHTML = '<option value="">-- Seleccionar proveedor --</option>' +
+      provs.filter(p => p.Estado === 'Activo').map(p => `<option value="${p.ID_Proveedor||p.Nombre_Empresa}">${p.Nombre_Empresa}</option>`).join('');
+  });
+  openModal('modal-rfq');
+}
+
+function confirmarRFQ() {
+  const idReceta = document.getElementById('rfq-id-receta').value;
+  const prov = document.getElementById('rfq-proveedor').value;
+  const fecha = document.getElementById('rfq-fecha').value;
+  const cond = document.getElementById('rfq-condiciones').value.trim();
+  if (!prov) { toast('Selecciona un proveedor','err'); return; }
+  if (!fecha) { toast('Ingresa la fecha límite','err'); return; }
+  callServer('generarRFQ', {idReceta, idProveedor: prov, fechaLimite: fecha, condiciones: cond}, r => {
+    if (r.ok) {
+      toast('RFQ generada — Receta actualizada a "RFQ Enviada"', 'ok');
+      closeModal('modal-rfq');
+      renderView('recetas');
+    } else {
+      toast('Error al generar RFQ', 'err');
+    }
+  });
+}
+
+// ── DESPACHAR INVENTARIO ──
+function abrirDespachar(idMat, nombre, stock) {
+  document.getElementById('despachar-id').value = idMat;
+  document.getElementById('despachar-mat').value = nombre;
+  document.getElementById('despachar-stock-display').textContent = stock + ' unidades disponibles';
+  document.getElementById('despachar-cant').value = '';
+  document.getElementById('despachar-cant').max = stock;
+  document.getElementById('despachar-area').value = '';
+  openModal('modal-despachar');
+}
+
+function confirmarDespacho() {
+  const idMat = document.getElementById('despachar-id').value;
+  const cant = parseFloat(document.getElementById('despachar-cant').value)||0;
+  const area = document.getElementById('despachar-area').value;
+  const stockMax = parseFloat(document.getElementById('despachar-cant').max)||0;
+  if (!cant || cant <= 0) { toast('Ingresa una cantidad válida','err'); return; }
+  if (cant > stockMax) { toast('La cantidad supera el stock disponible','err'); return; }
+  if (!area) { toast('Selecciona el área destino','err'); return; }
+  callServer('despacharMaterial', {idMaterial: idMat, cantidad: cant, areaDestino: area}, r => {
+    if (r.ok) {
+      toast(`Despachado ${cant} unid. hacia ${area}`, 'ok');
+      closeModal('modal-despachar');
+      renderView('inventario');
+    } else {
+      toast('Error al registrar despacho', 'err');
+    }
+  });
+}
+
+// ── NUEVO PRECIO (Proveedor) ──
+function abrirNuevoPrecio() {
+  // Pre-poblar select de materiales
+  const sel = document.getElementById('np-material');
+  sel.innerHTML = '<option value="">-- Seleccionar material --</option>' +
+    S.materiales.map(m=>`<option value="${m.ID_Material}" data-nombre="${m.Nombre}" data-precio="${m['Precio_Referencia_S/']||0}">${m.Nombre} (${m.Categoría||''})</option>`).join('');
+
+  sel.onchange = () => {
+    const opt = sel.selectedOptions[0];
+    const ref = document.getElementById('np-precio-ref');
+    if (opt&&opt.value) {
+      ref.innerHTML = `<i class="fa-solid fa-circle-info" style="color:var(--blue)"></i> Precio de referencia del sistema: <strong>S/. ${parseFloat(opt.dataset.precio||0).toFixed(2)}</strong>`;
+      if (!document.getElementById('np-precio').value)
+        document.getElementById('np-precio').value = parseFloat(opt.dataset.precio||0).toFixed(2);
+    } else {
+      ref.textContent = '';
+    }
+  };
+
+  // Fechas por defecto: hoy → +60 días
+  const hoy = new Date();
+  const fin  = new Date(); fin.setDate(fin.getDate()+60);
+  const fmt  = d => d.toISOString().split('T')[0];
+  document.getElementById('np-ini').value   = fmt(hoy);
+  document.getElementById('np-fin').value   = fmt(fin);
+  document.getElementById('np-precio').value = '';
+  document.getElementById('np-precio-ref').textContent = '';
+  document.getElementById('np-notas').value  = '';
+  openModal('modal-nuevo-precio');
+}
+
+function guardarNuevoPrecio() {
+  const sel    = document.getElementById('np-material');
+  const opt    = sel.selectedOptions[0];
+  const precio = parseFloat(document.getElementById('np-precio').value)||0;
+  const ini    = document.getElementById('np-ini').value;
+  const fin    = document.getElementById('np-fin').value;
+
+  if (!opt||!opt.value) { toast('Selecciona un material','err'); return; }
+  if (precio <= 0)       { toast('Ingresa un precio válido','err'); return; }
+  if (!ini||!fin)        { toast('Completa las fechas de vigencia','err'); return; }
+  if (fin <= ini)        { toast('La fecha de fin debe ser posterior al inicio','err'); return; }
+
+  const payload = {
+    idMaterial:    opt.value,
+    nombreMaterial:opt.dataset.nombre,
+    precioUnitario:precio,
+    vigenciaInicio:ini,
+    vigenciaFin:   fin,
+    notas:         document.getElementById('np-notas').value.trim(),
+  };
+
+  callServer('agregarPrecio', payload, r => {
+    if (r.ok) {
+      toast(`Precio S/. ${precio.toFixed(2)} publicado para "${opt.dataset.nombre}"`, 'ok');
+      closeModal('modal-nuevo-precio');
+      renderView(S.view);
+    } else {
+      toast('Error al publicar precio', 'err');
+    }
+  });
+}
+
 // ── SERVER BRIDGE ──
 function callServer(fn, params, cb) {
   // En Apps Script Web App, usa google.script.run
@@ -1333,54 +2035,258 @@ function callServer(fn, params, cb) {
 // ── DEMO DATA (para previsualizar sin Apps Script) ──
 function demoData(fn, params, cb) {
   const now = new Date().toLocaleDateString('es-PE');
+  const d1='01/06/2026', d2='31/07/2026', d3='15/08/2026', d4='30/09/2026';
+
+  const PROVEEDORES = [
+    {ID_Proveedor:'PROV-001',Nombre_Empresa:'Schneider Electric Perú S.A.',RUC:'20601100015',Nombre_Contacto:'Ricardo Ponce',    Email_Contacto:'rponce@se.com',       Tipo_Materiales:'Comunes',         Nivel_Fidelización:'Gold',  Score:96,'Tasa_Cumplimiento_%':99,Estado:'Activo'},
+    {ID_Proveedor:'PROV-002',Nombre_Empresa:'Legrand Perú S.A.C.',         RUC:'20601200033',Nombre_Contacto:'Fernando Salas',   Email_Contacto:'fsalas@legrand.pe',   Tipo_Materiales:'Comunes',         Nivel_Fidelización:'Silver',Score:83,'Tasa_Cumplimiento_%':87,Estado:'Activo'},
+    {ID_Proveedor:'PROV-003',Nombre_Empresa:'ABB S.A.C.',                  RUC:'20601300051',Nombre_Contacto:'Carmen Villanueva',Email_Contacto:'cvillanueva@abb.com', Tipo_Materiales:'Específicos',     Nivel_Fidelización:'Gold',  Score:93,'Tasa_Cumplimiento_%':96,Estado:'Activo'},
+    {ID_Proveedor:'PROV-004',Nombre_Empresa:'Rittal del Perú S.A.C.',      RUC:'20601400079',Nombre_Contacto:'Andrea Huanca',    Email_Contacto:'ahuanca@rittal.pe',   Tipo_Materiales:'Específicos',     Nivel_Fidelización:'Silver',Score:79,'Tasa_Cumplimiento_%':81,Estado:'Activo'},
+    {ID_Proveedor:'PROV-005',Nombre_Empresa:'Intega Distribución S.A.C.',  RUC:'20601500017',Nombre_Contacto:'Luis Medina',      Email_Contacto:'lmedina@intega.pe',   Tipo_Materiales:'Comunes y Espec.',Nivel_Fidelización:'Bronze',Score:71,'Tasa_Cumplimiento_%':74,Estado:'Activo'},
+  ];
+
+  const MATERIALES = [
+    {ID_Material:'MAT-001',Nombre:'Interruptor Termomagnético 20A',Categoría:'Común',Unidad_Medida:'Unidad','Precio_Referencia_S/':45,Estado:'Activo'},
+    {ID_Material:'MAT-002',Nombre:'Cable THW 4mm²',Categoría:'Común',Unidad_Medida:'Metro','Precio_Referencia_S/':3.5,Estado:'Activo'},
+    {ID_Material:'MAT-003',Nombre:'Tablero metálico 600x400 mm',Categoría:'Específico',Unidad_Medida:'Unidad','Precio_Referencia_S/':380,Estado:'Activo'},
+    {ID_Material:'MAT-004',Nombre:'Contactor 40A 24VDC',Categoría:'Específico',Unidad_Medida:'Unidad','Precio_Referencia_S/':210,Estado:'Activo'},
+    {ID_Material:'MAT-005',Nombre:'PLC Siemens S7-1200',Categoría:'Específico',Unidad_Medida:'Unidad','Precio_Referencia_S/':1850,Estado:'Activo'},
+    {ID_Material:'MAT-006',Nombre:'Cable de control 12x1.5mm²',Categoría:'Común',Unidad_Medida:'Metro','Precio_Referencia_S/':8.2,Estado:'Activo'},
+    {ID_Material:'MAT-007',Nombre:'Riel DIN 35mm',Categoría:'Común',Unidad_Medida:'Metro','Precio_Referencia_S/':12,Estado:'Activo'},
+    {ID_Material:'MAT-008',Nombre:'Transformador de corriente 100/5A',Categoría:'Específico',Unidad_Medida:'Unidad','Precio_Referencia_S/':95,Estado:'Activo'},
+  ];
+
+  const RECETAS = [
+    {ID_Receta:'REC-001',Proyecto:'Tablero General TG-A1',       Cliente:'Minería Andina SAC',         Tipo_Receta:'Común',     Fecha_Requerida:'30/07/2026',Estado:'Completada'},
+    {ID_Receta:'REC-002',Proyecto:'Centro de Control MCC-02',    Cliente:'Planta Textil Norte',         Tipo_Receta:'Específica', Fecha_Requerida:'20/08/2026',Estado:'RFQ Enviada'},
+    {ID_Receta:'REC-003',Proyecto:'Tablero Distribución TD-5',   Cliente:'Hospital Regional',           Tipo_Receta:'Común',     Fecha_Requerida:'05/08/2026',Estado:'OC Generada'},
+    {ID_Receta:'REC-004',Proyecto:'Panel Automatización PA-03',  Cliente:'Industrias Químicas Perú',    Tipo_Receta:'Específica', Fecha_Requerida:'12/08/2026',Estado:'Recibida'},
+    {ID_Receta:'REC-005',Proyecto:'Tablero Arranque TY-8',       Cliente:'Pesquera del Sur',            Tipo_Receta:'Específica', Fecha_Requerida:'25/08/2026',Estado:'En proceso'},
+    {ID_Receta:'REC-006',Proyecto:'Sistema SCADA SC-01',         Cliente:'Minería Andina SAC',          Tipo_Receta:'Específica', Fecha_Requerida:'10/09/2026',Estado:'Cotización Recibida'},
+    {ID_Receta:'REC-007',Proyecto:'Tablero Fuerza TF-12',        Cliente:'Constructora Lima',           Tipo_Receta:'Específica', Fecha_Requerida:'30/09/2026',Estado:'Recibida'},
+    {ID_Receta:'REC-008',Proyecto:'Armario Comunicaciones AC-2', Cliente:'Telecom Andina',              Tipo_Receta:'Común',     Fecha_Requerida:'15/10/2026',Estado:'Recibida'},
+  ];
+
+  const COTIZACIONES = [
+    {ID_Cotización:'COT-001',Nombre_Proveedor:'Schneider Electric Perú S.A.',Nombre_Material:'Interruptor Termomagnético 20A',    Cantidad:10, Precio_Unitario:42.00,Subtotal:420,  Es_Auto_Generada:'TRUE', Estado:'Aceptada'},
+    {ID_Cotización:'COT-002',Nombre_Proveedor:'Rittal del Perú S.A.C.',       Nombre_Material:'Tablero metálico 600x400 mm',       Cantidad:3,  Precio_Unitario:355,  Subtotal:1065, Es_Auto_Generada:'TRUE', Estado:'Auto-aceptada'},
+    {ID_Cotización:'COT-003',Nombre_Proveedor:'ABB S.A.C.',                   Nombre_Material:'PLC Siemens S7-1200',               Cantidad:2,  Precio_Unitario:1790, Subtotal:3580, Es_Auto_Generada:'FALSE',Estado:'Pendiente de respuesta'},
+    {ID_Cotización:'COT-004',Nombre_Proveedor:'Legrand Perú S.A.C.',          Nombre_Material:'Cable THW 4mm²',                    Cantidad:200,Precio_Unitario:3.20, Subtotal:640,  Es_Auto_Generada:'TRUE', Estado:'Aceptada'},
+    {ID_Cotización:'COT-005',Nombre_Proveedor:'Rittal del Perú S.A.C.',       Nombre_Material:'Riel DIN 35mm',                     Cantidad:50, Precio_Unitario:11.50,Subtotal:575,  Es_Auto_Generada:'TRUE', Estado:'Rechazada'},
+    {ID_Cotización:'COT-006',Nombre_Proveedor:'ABB S.A.C.',                   Nombre_Material:'Contactor 40A 24VDC',               Cantidad:8,  Precio_Unitario:198,  Subtotal:1584, Es_Auto_Generada:'TRUE', Estado:'Aceptada'},
+    {ID_Cotización:'COT-007',Nombre_Proveedor:'ABB S.A.C.',                   Nombre_Material:'Transformador de corriente 100/5A', Cantidad:5,  Precio_Unitario:88,   Subtotal:440,  Es_Auto_Generada:'FALSE',Estado:'Pendiente confirmación'},
+    {ID_Cotización:'COT-008',Nombre_Proveedor:'Legrand Perú S.A.C.',          Nombre_Material:'Cable de control 12x1.5mm²',        Cantidad:100,Precio_Unitario:7.80, Subtotal:780,  Es_Auto_Generada:'TRUE', Estado:'Aceptada'},
+    {ID_Cotización:'COT-009',Nombre_Proveedor:'ABB S.A.C.',                   Nombre_Material:'PLC Siemens S7-1200',               Cantidad:1,  Precio_Unitario:1850, Subtotal:1850, Es_Auto_Generada:'FALSE',Estado:'Pendiente de respuesta'},
+    {ID_Cotización:'COT-010',Nombre_Proveedor:'ABB S.A.C.',                   Nombre_Material:'Interruptor Termomagnético 20A',    Cantidad:20, Precio_Unitario:46.50,Subtotal:930,  Es_Auto_Generada:'TRUE', Estado:'Vencida'},
+  ];
+
+  const OC_LIST = [
+    {ID_OC:'OC-001',Nombre_Proveedor:'Schneider Electric Perú S.A.',Monto_Total:1060,Fecha_Generación:'02/06/2026',Estado_Aprobación:'Auto-aprobada',Estado_General:'Completada'},
+    {ID_OC:'OC-002',Nombre_Proveedor:'ABB S.A.C.',Monto_Total:3580,Fecha_Generación:'05/06/2026',Estado_Aprobación:'Aprobada',Estado_General:'Enviada a proveedor'},
+    {ID_OC:'OC-003',Nombre_Proveedor:'Legrand Perú S.A.C.',Monto_Total:1065,Fecha_Generación:'10/06/2026',Estado_Aprobación:'Auto-aprobada',Estado_General:'Completada'},
+    {ID_OC:'OC-004',Nombre_Proveedor:'ABB S.A.C.',Monto_Total:1584,Fecha_Generación:'15/06/2026',Estado_Aprobación:'Aprobada',Estado_General:'Completada'},
+    {ID_OC:'OC-005',Nombre_Proveedor:'Schneider Electric Perú S.A.',Monto_Total:780,Fecha_Generación:'20/06/2026',Estado_Aprobación:'Auto-aprobada',Estado_General:'Completada'},
+    {ID_OC:'OC-006',Nombre_Proveedor:'Legrand Perú S.A.C.',Monto_Total:4250,Fecha_Generación:'25/06/2026',Estado_Aprobación:'Pendiente',Estado_General:'Pendiente aprobación'},
+    {ID_OC:'OC-007',Nombre_Proveedor:'ABB S.A.C.',Monto_Total:2800,Fecha_Generación:'01/07/2026',Estado_Aprobación:'Pendiente',Estado_General:'Pendiente aprobación'},
+    {ID_OC:'OC-008',Nombre_Proveedor:'Rittal del Perú S.A.C.',Monto_Total:880,Fecha_Generación:'03/07/2026',Estado_Aprobación:'Rechazada',Estado_General:'Cancelada'},
+    {ID_OC:'OC-009',Nombre_Proveedor:'Schneider Electric Perú S.A.',Monto_Total:1420,Fecha_Generación:'05/07/2026',Estado_Aprobación:'Auto-aprobada',Estado_General:'En tránsito'},
+    {ID_OC:'OC-010',Nombre_Proveedor:'Legrand Perú S.A.C.',Monto_Total:6700,Fecha_Generación:'07/07/2026',Estado_Aprobación:'Pendiente',Estado_General:'Pendiente aprobación'},
+    {ID_OC:'OC-011',Nombre_Proveedor:'Rittal del Perú S.A.C.',Monto_Total:1065,Fecha_Generación:'09/07/2026',Estado_Aprobación:'Auto-aprobada',Estado_General:'Enviada a proveedor'},
+  ];
+
+  const RECEPCIONES = [
+    {ID_Recepción:'RECFIS-001',ID_OC:'OC-001',Nombre_Material:'Interruptor Termomagnético 20A',Cantidad_OC:10,Cantidad_Recibida:10,Conforme:'SI',Estado_Verificación:'Aprobada',Fecha_Entrega_Real:'10/06/2026'},
+    {ID_Recepción:'RECFIS-002',ID_OC:'OC-001',Nombre_Material:'Cable THW 4mm²',Cantidad_OC:200,Cantidad_Recibida:195,Conforme:'Parcial',Estado_Verificación:'Aprobada',Fecha_Entrega_Real:'10/06/2026'},
+    {ID_Recepción:'RECFIS-003',ID_OC:'OC-003',Nombre_Material:'Tablero metálico 600x400 mm',Cantidad_OC:3,Cantidad_Recibida:3,Conforme:'SI',Estado_Verificación:'Aprobada',Fecha_Entrega_Real:'18/06/2026'},
+    {ID_Recepción:'RECFIS-004',ID_OC:'OC-004',Nombre_Material:'Contactor 40A 24VDC',Cantidad_OC:8,Cantidad_Recibida:6,Conforme:'Parcial',Estado_Verificación:'Pendiente',Fecha_Entrega_Real:'22/06/2026'},
+    {ID_Recepción:'RECFIS-005',ID_OC:'OC-005',Nombre_Material:'Cable de control 12x1.5mm²',Cantidad_OC:100,Cantidad_Recibida:100,Conforme:'SI',Estado_Verificación:'Aprobada',Fecha_Entrega_Real:'27/06/2026'},
+    {ID_Recepción:'RECFIS-006',ID_OC:'OC-002',Nombre_Material:'PLC Siemens S7-1200',Cantidad_OC:2,Cantidad_Recibida:2,Conforme:'SI',Estado_Verificación:'Aprobada',Fecha_Entrega_Real:'02/07/2026'},
+  ];
+
+  const INVENTARIO = [
+    {ID_Material:'MAT-001',Nombre:'Interruptor Termomagnético 20A',Categoría:'Común',Cantidad:45,Unidad:'Unidad',StockMin:20,StockMax:100,Nivel:'Óptimo'},
+    {ID_Material:'MAT-002',Nombre:'Cable THW 4mm²',Categoría:'Común',Cantidad:180,Unidad:'Metro',StockMin:100,StockMax:500,Nivel:'Óptimo'},
+    {ID_Material:'MAT-003',Nombre:'Tablero metálico 600x400 mm',Categoría:'Específico',Cantidad:4,Unidad:'Unidad',StockMin:5,StockMax:20,Nivel:'Bajo'},
+    {ID_Material:'MAT-004',Nombre:'Contactor 40A 24VDC',Categoría:'Específico',Cantidad:2,Unidad:'Unidad',StockMin:5,StockMax:30,Nivel:'Crítico'},
+    {ID_Material:'MAT-005',Nombre:'PLC Siemens S7-1200',Categoría:'Específico',Cantidad:2,Unidad:'Unidad',StockMin:2,StockMax:10,Nivel:'Bajo'},
+    {ID_Material:'MAT-006',Nombre:'Cable de control 12x1.5mm²',Categoría:'Común',Cantidad:320,Unidad:'Metro',StockMin:100,StockMax:600,Nivel:'Óptimo'},
+    {ID_Material:'MAT-007',Nombre:'Riel DIN 35mm',Categoría:'Común',Cantidad:8,Unidad:'Metro',StockMin:20,StockMax:80,Nivel:'Crítico'},
+    {ID_Material:'MAT-008',Nombre:'Transformador de corriente 100/5A',Categoría:'Específico',Cantidad:1,Unidad:'Unidad',StockMin:3,StockMax:15,Nivel:'Crítico'},
+  ];
+
+  const ITEMS_OC = {
+    'OC-001':[{ID_Material:'MAT-001',Nombre_Material:'Interruptor Termomagnético 20A',Cantidad:10,Unidad:'Unidad'},{ID_Material:'MAT-002',Nombre_Material:'Cable THW 4mm²',Cantidad:200,Unidad:'Metro'}],
+    'OC-002':[{ID_Material:'MAT-005',Nombre_Material:'PLC Siemens S7-1200',Cantidad:2,Unidad:'Unidad'}],
+    'OC-003':[{ID_Material:'MAT-003',Nombre_Material:'Tablero metálico 600x400 mm',Cantidad:3,Unidad:'Unidad'}],
+    'OC-004':[{ID_Material:'MAT-004',Nombre_Material:'Contactor 40A 24VDC',Cantidad:8,Unidad:'Unidad'}],
+    'OC-005':[{ID_Material:'MAT-006',Nombre_Material:'Cable de control 12x1.5mm²',Cantidad:100,Unidad:'Metro'}],
+    'OC-006':[{ID_Material:'MAT-003',Nombre_Material:'Tablero metálico 600x400 mm',Cantidad:5,Unidad:'Unidad'},{ID_Material:'MAT-007',Nombre_Material:'Riel DIN 35mm',Cantidad:40,Unidad:'Metro'}],
+    'OC-007':[{ID_Material:'MAT-004',Nombre_Material:'Contactor 40A 24VDC',Cantidad:10,Unidad:'Unidad'},{ID_Material:'MAT-008',Nombre_Material:'Transformador de corriente 100/5A',Cantidad:4,Unidad:'Unidad'}],
+    'OC-009':[{ID_Material:'MAT-001',Nombre_Material:'Interruptor Termomagnético 20A',Cantidad:15,Unidad:'Unidad'},{ID_Material:'MAT-007',Nombre_Material:'Riel DIN 35mm',Cantidad:20,Unidad:'Metro'}],
+    'OC-010':[{ID_Material:'MAT-005',Nombre_Material:'PLC Siemens S7-1200',Cantidad:3,Unidad:'Unidad'},{ID_Material:'MAT-008',Nombre_Material:'Transformador de corriente 100/5A',Cantidad:5,Unidad:'Unidad'}],
+    'OC-011':[{ID_Material:'MAT-003',Nombre_Material:'Tablero metálico 600x400 mm',Cantidad:3,Unidad:'Unidad'}],
+  };
+
+  const ITEMS_RECETA = {
+    'REC-001':[
+      {Nombre_Material:'Interruptor Termomagnético 20A',Cantidad:15,Unidad:'Unidad'},
+      {Nombre_Material:'Cable THW 4mm²',               Cantidad:80,Unidad:'Metro'},
+      {Nombre_Material:'Riel DIN 35mm',                Cantidad:6, Unidad:'Metro'},
+      {Nombre_Material:'Cable de control 12x1.5mm²',   Cantidad:40,Unidad:'Metro'},
+    ],
+    'REC-002':[
+      {Nombre_Material:'Contactor 40A 24VDC',              Cantidad:12,Unidad:'Unidad'},
+      {Nombre_Material:'PLC Siemens S7-1200',              Cantidad:1, Unidad:'Unidad'},
+      {Nombre_Material:'Transformador de corriente 100/5A',Cantidad:3, Unidad:'Unidad'},
+    ],
+    'REC-003':[
+      {Nombre_Material:'Interruptor Termomagnético 20A',Cantidad:20, Unidad:'Unidad'},
+      {Nombre_Material:'Cable THW 4mm²',               Cantidad:150,Unidad:'Metro'},
+      {Nombre_Material:'Tablero metálico 600x400 mm',  Cantidad:2,  Unidad:'Unidad'},
+    ],
+    'REC-004':[
+      {Nombre_Material:'PLC Siemens S7-1200',              Cantidad:2,Unidad:'Unidad'},
+      {Nombre_Material:'Contactor 40A 24VDC',              Cantidad:8,Unidad:'Unidad'},
+      {Nombre_Material:'Transformador de corriente 100/5A',Cantidad:5,Unidad:'Unidad'},
+    ],
+    'REC-005':[
+      {Nombre_Material:'Contactor 40A 24VDC',            Cantidad:6,Unidad:'Unidad'},
+      {Nombre_Material:'PLC Siemens S7-1200',            Cantidad:1,Unidad:'Unidad'},
+      {Nombre_Material:'Tablero metálico 600x400 mm',    Cantidad:3,Unidad:'Unidad'},
+    ],
+    'REC-006':[
+      {Nombre_Material:'PLC Siemens S7-1200',              Cantidad:3,Unidad:'Unidad'},
+      {Nombre_Material:'Transformador de corriente 100/5A',Cantidad:4,Unidad:'Unidad'},
+      {Nombre_Material:'Riel DIN 35mm',                    Cantidad:5,Unidad:'Metro'},
+    ],
+    'REC-007':[
+      {Nombre_Material:'Contactor 40A 24VDC',              Cantidad:10,Unidad:'Unidad'},
+      {Nombre_Material:'Tablero metálico 600x400 mm',      Cantidad:4, Unidad:'Unidad'},
+      {Nombre_Material:'Transformador de corriente 100/5A',Cantidad:2, Unidad:'Unidad'},
+    ],
+    'REC-008':[
+      {Nombre_Material:'Tablero metálico 600x400 mm',   Cantidad:2, Unidad:'Unidad'},
+      {Nombre_Material:'Cable de control 12x1.5mm²',    Cantidad:30,Unidad:'Metro'},
+      {Nombre_Material:'Riel DIN 35mm',                 Cantidad:8, Unidad:'Metro'},
+    ],
+  };
+
+  const totalGasto = OC_LIST.filter(o=>o.Estado_General==='Completada'||o.Estado_General==='En tránsito').reduce((s,o)=>s+o.Monto_Total,0);
+  const pendientesOC = OC_LIST.filter(o=>o.Estado_Aprobación==='Pendiente');
+
   const DEMO = {
     getUsuarioActual: ()=>S.user||({id:'USR-001',nombre:'Jesús Vergaray',email:'admin@aclbest.com',rol:'Admin',idProveedor:''}),
-    getDashboardData: ()=>({
-      kpis:{ocMes:22,ocPendientes:3,ocCompletadas:19,provGold:2,preciosVig:10,cotAuto:18,rfqPendientes:2,gastoMes:'8520.00'},
-      grafico_barras:[{mes:'Ene',count:15},{mes:'Feb',count:18},{mes:'Mar',count:20},{mes:'Abr',count:17},{mes:'May',count:22},{mes:'Jun',count:22}],
-      grafico_dona:{Pendiente:3,Aprobada:5,'Auto-aprobada':8,Completada:19,Rechazada:1},
-      ultimas_oc:[
-        {ID_OC:'OC-001',Nombre_Proveedor:'Distribuidora Eléctrica SAC',Monto_Total:790,Fecha_Generación:now,Estado_Aprobación:'Auto-aprobada',Estado_General:'Completada'},
-        {ID_OC:'OC-002',Nombre_Proveedor:'Tableros y Componentes EIRL',Monto_Total:2850,Fecha_Generación:now,Estado_Aprobación:'Pendiente',Estado_General:'Pendiente aprobación'},
-        {ID_OC:'OC-003',Nombre_Proveedor:'Distribuidora Eléctrica SAC',Monto_Total:1100,Fecha_Generación:now,Estado_Aprobación:'Aprobada',Estado_General:'Enviada a proveedor'},
-      ]
-    }),
-    getRecetas: ()=>[
-      {ID_Receta:'REC-001',Proyecto:'Tablero TG-001',Cliente:'Cliente ABC',Tipo_Receta:'Común',Prioridad:'Alta',Fecha_Requerida:'30/06/2026',Estado:'Completada'},
-      {ID_Receta:'REC-002',Proyecto:'Tablero MT-003',Cliente:'Minera Peru',Tipo_Receta:'Específica',Prioridad:'Normal',Fecha_Requerida:'15/07/2026',Estado:'RFQ Enviada'},
-    ],
-    getCotizaciones: ()=>[
-      {ID_Cotización:'COT-001',Nombre_Proveedor:'Distribuidora Eléctrica SAC',Nombre_Material:'Interruptor 20A',Cantidad:5,Precio_Unitario:42,Subtotal:210,Es_Auto_Generada:'TRUE',Estado:'Aceptada'},
-      {ID_Cotización:'COT-002',Nombre_Proveedor:'Tableros y Componentes EIRL',Nombre_Material:'Tablero 600x400',Cantidad:2,Precio_Unitario:360,Subtotal:720,Es_Auto_Generada:'TRUE',Estado:'Pendiente confirmación'},
-    ],
-    getOrdenes: ()=>[
-      {ID_OC:'OC-001',Nombre_Proveedor:'Distribuidora Eléctrica SAC',Monto_Total:790,Fecha_Generación:now,Estado_Aprobación:'Auto-aprobada',Estado_General:'Completada'},
-      {ID_OC:'OC-002',Nombre_Proveedor:'Tableros y Componentes EIRL',Monto_Total:2850,Fecha_Generación:now,Estado_Aprobación:'Pendiente',Estado_General:'Pendiente aprobación'},
-    ],
-    getCatalogo: ()=>[
-      {ID_Precio:'CAT-001',Nombre_Material:'Interruptor Termomagnético 20A',Nombre_Proveedor:'Distribuidora Eléctrica SAC',Precio_Unitario:42,Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'01/07/2026',Estado_Vigencia:'Vigente',Última_Actualización:now},
-      {ID_Precio:'CAT-002',Nombre_Material:'Cable THW 4mm²',Nombre_Proveedor:'Distribuidora Eléctrica SAC',Precio_Unitario:3.20,Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'01/07/2026',Estado_Vigencia:'Vigente',Última_Actualización:now},
-      {ID_Precio:'CAT-003',Nombre_Material:'Tablero metálico 600x400',Nombre_Proveedor:'Tableros y Componentes EIRL',Precio_Unitario:360,Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'15/06/2026',Estado_Vigencia:'Vencido',Última_Actualización:now},
-    ],
-    getProveedores: ()=>[
-      {Nombre_Empresa:'Distribuidora Eléctrica SAC',RUC:'20123456789',Nombre_Contacto:'Carlos Quispe',Email_Contacto:'cquispe@diselec.com',Tipo_Materiales:'Comunes',Nivel_Fidelización:'Gold',Score:95,'Tasa_Cumplimiento_%':98,Estado:'Activo'},
-      {Nombre_Empresa:'Tableros y Componentes EIRL',RUC:'20987654321',Nombre_Contacto:'María Torres',Email_Contacto:'mtorres@tableros.com',Tipo_Materiales:'Específicos',Nivel_Fidelización:'Silver',Score:82,'Tasa_Cumplimiento_%':85,Estado:'Activo'},
-    ],
-    getRecepciones: ()=>[
-      {ID_Recepción:'RECFIS-001',ID_OC:'OC-001',Nombre_Material:'Interruptor 20A',Cantidad_OC:5,Cantidad_Recibida:5,Conforme:'SI',Estado_Verificación:'Aprobada',Fecha_Entrega_Real:now},
-    ],
-    getMateriales: ()=>[
-      {ID_Material:'MAT-001',Nombre:'Interruptor Termomagnético 20A',Categoría:'Común',Unidad_Medida:'Unidad','Precio_Referencia_S/':45,Estado:'Activo'},
-      {ID_Material:'MAT-002',Nombre:'Cable THW 4mm²',Categoría:'Común',Unidad_Medida:'Metro','Precio_Referencia_S/':3.5,Estado:'Activo'},
-      {ID_Material:'MAT-003',Nombre:'Tablero metálico 600x400',Categoría:'Específico',Unidad_Medida:'Unidad','Precio_Referencia_S/':380,Estado:'Activo'},
-    ],
-    crearReceta: ()=>({ok:true,idReceta:'REC-DEMO-'+Date.now()}),
-    aceptarCotizacion: ()=>({ok:true}),
+    getDashboardData: () => {
+      const isProv = S.user&&S.user.rol==='Proveedor'&&S.user.idProveedor;
+      const prov = isProv ? PROVEEDORES.find(p=>p.ID_Proveedor===S.user.idProveedor) : null;
+      const misCots = prov ? COTIZACIONES.filter(c=>c.Nombre_Proveedor===prov.Nombre_Empresa) : [];
+      const misOC   = prov ? OC_LIST.filter(o=>o.Nombre_Proveedor===prov.Nombre_Empresa) : OC_LIST;
+      const kpisBase = {ocMes:OC_LIST.length,ocPendientes:pendientesOC.length,ocCompletadas:OC_LIST.filter(o=>o.Estado_General==='Completada').length,gastoMes:totalGasto.toFixed(2)};
+      const kpisProv = {misCotizaciones:misCots.length,misPrecios:misCots.filter(c=>c.Estado==='Aceptada').length,misOC:misOC.length,preciosPorVencer:1};
+      return {
+        kpis: isProv ? kpisProv : kpisBase,
+        grafico_barras:[{mes:'Feb',count:12},{mes:'Mar',count:16},{mes:'Abr',count:18},{mes:'May',count:21},{mes:'Jun',count:8},{mes:'Jul',count:10}],
+        grafico_dona:{Pendiente:pendientesOC.length,Aprobada:2,'Auto-aprobada':4,Completada:OC_LIST.filter(o=>o.Estado_General==='Completada').length,Rechazada:1},
+        ultimas_oc: misOC.slice(-5).reverse(),
+      };
+    },
+    getRecetas:     ()=> RECETAS,
+    getCotizaciones:()=> {
+      if (S.user&&S.user.rol==='Proveedor'&&S.user.idProveedor) {
+        const prov = PROVEEDORES.find(p=>p.ID_Proveedor===S.user.idProveedor);
+        return prov ? COTIZACIONES.filter(c=>c.Nombre_Proveedor===prov.Nombre_Empresa) : COTIZACIONES;
+      }
+      return COTIZACIONES;
+    },
+    getOrdenes: p => {
+      let lista = p&&p.filtro==='pendientes' ? pendientesOC : OC_LIST;
+      if (S.user&&S.user.rol==='Proveedor'&&S.user.idProveedor) {
+        const prov = PROVEEDORES.find(pr=>pr.ID_Proveedor===S.user.idProveedor);
+        lista = prov ? lista.filter(o=>o.Nombre_Proveedor===prov.Nombre_Empresa) : lista;
+      }
+      return lista;
+    },
+    getCatalogo: ()=>{
+      const ALL_CAT = [
+      // ── Interruptor 20A: Schneider (iC60N) vs ABB (S200) vs Intega — Schneider más barato
+      {ID_Precio:'CAT-001', Nombre_Material:'Interruptor Termomagnético 20A',Nombre_Proveedor:'Schneider Electric Perú S.A.',Precio_Unitario:42.00,Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'02/06/2026'},
+      {ID_Precio:'CAT-001B',Nombre_Material:'Interruptor Termomagnético 20A',Nombre_Proveedor:'ABB S.A.C.',               Precio_Unitario:46.50,Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'05/06/2026'},
+      // ── Cable THW 4mm²: Legrand (especialista) vs Schneider (dist.) — Legrand más barato
+      {ID_Precio:'CAT-002', Nombre_Material:'Cable THW 4mm²',Nombre_Proveedor:'Legrand Perú S.A.C.',           Precio_Unitario:3.20, Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'02/06/2026'},
+      {ID_Precio:'CAT-002B',Nombre_Material:'Cable THW 4mm²',Nombre_Proveedor:'Schneider Electric Perú S.A.',Precio_Unitario:3.75, Fecha_Vigencia_Inicio:'01/05/2026',Fecha_Vigencia_Fin:'31/07/2026',Estado_Vigencia:'Vigente',Última_Actualización:'03/05/2026'},
+      // ── Tablero metálico: Rittal (AE series) vs Schneider (Spacial) — Rittal más barato
+      {ID_Precio:'CAT-003', Nombre_Material:'Tablero metálico 600x400 mm',Nombre_Proveedor:'Rittal del Perú S.A.C.',       Precio_Unitario:355, Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'15/07/2026',Estado_Vigencia:'Vigente',Última_Actualización:'05/06/2026'},
+      {ID_Precio:'CAT-003B',Nombre_Material:'Tablero metálico 600x400 mm',Nombre_Proveedor:'Schneider Electric Perú S.A.',Precio_Unitario:388, Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'06/06/2026'},
+      // ── Contactor 40A: ABB (AF40) vs Schneider (TeSys D) — ABB más barato
+      {ID_Precio:'CAT-004', Nombre_Material:'Contactor 40A 24VDC',Nombre_Proveedor:'ABB S.A.C.',               Precio_Unitario:198, Fecha_Vigencia_Inicio:'15/05/2026',Fecha_Vigencia_Fin:'15/07/2026',Estado_Vigencia:'Vigente',Última_Actualización:'15/05/2026'},
+      {ID_Precio:'CAT-004B',Nombre_Material:'Contactor 40A 24VDC',Nombre_Proveedor:'Schneider Electric Perú S.A.',Precio_Unitario:215, Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'01/06/2026'},
+      // ── PLC Siemens S7-1200: ABB (dist. autorizado) vs Schneider — ABB más barato
+      {ID_Precio:'CAT-005', Nombre_Material:'PLC Siemens S7-1200',Nombre_Proveedor:'ABB S.A.C.',               Precio_Unitario:1790,Fecha_Vigencia_Inicio:'01/05/2026',Fecha_Vigencia_Fin:'01/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'01/05/2026'},
+      {ID_Precio:'CAT-005B',Nombre_Material:'PLC Siemens S7-1200',Nombre_Proveedor:'Schneider Electric Perú S.A.',Precio_Unitario:1860,Fecha_Vigencia_Inicio:'15/05/2026',Fecha_Vigencia_Fin:'15/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'15/05/2026'},
+      // ── Cable control: Legrand (especialista cables)
+      {ID_Precio:'CAT-006', Nombre_Material:'Cable de control 12x1.5mm²',Nombre_Proveedor:'Legrand Perú S.A.C.',Precio_Unitario:7.80,Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'02/06/2026'},
+      // ── Riel DIN: Rittal (vencido) vs Legrand (vigente)
+      {ID_Precio:'CAT-007', Nombre_Material:'Riel DIN 35mm',Nombre_Proveedor:'Rittal del Perú S.A.C.',         Precio_Unitario:11.50,Fecha_Vigencia_Inicio:'01/04/2026',Fecha_Vigencia_Fin:'30/06/2026',Estado_Vigencia:'Vencido',Última_Actualización:'01/04/2026'},
+      {ID_Precio:'CAT-007B',Nombre_Material:'Riel DIN 35mm',Nombre_Proveedor:'Legrand Perú S.A.C.',           Precio_Unitario:10.80,Fecha_Vigencia_Inicio:'01/07/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'01/07/2026'},
+      // ── Transformador: ABB (especialista) vs Schneider (Acti9) — ABB más barato
+      {ID_Precio:'CAT-008', Nombre_Material:'Transformador de corriente 100/5A',Nombre_Proveedor:'ABB S.A.C.',               Precio_Unitario:88,  Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/07/2026',Estado_Vigencia:'Vigente',Última_Actualización:'03/06/2026'},
+      {ID_Precio:'CAT-008B',Nombre_Material:'Transformador de corriente 100/5A',Nombre_Proveedor:'Schneider Electric Perú S.A.',Precio_Unitario:102, Fecha_Vigencia_Inicio:'01/05/2026',Fecha_Vigencia_Fin:'31/07/2026',Estado_Vigencia:'Vigente',Última_Actualización:'02/05/2026'},
+      // ── Intega Distribución: distribuidor multiproducto — compite en TODOS los materiales
+      {ID_Precio:'CAT-009A',Nombre_Material:'Interruptor Termomagnético 20A',      Nombre_Proveedor:'Intega Distribución S.A.C.',Precio_Unitario:51.00,Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'10/06/2026'},
+      {ID_Precio:'CAT-009B',Nombre_Material:'Cable THW 4mm²',                      Nombre_Proveedor:'Intega Distribución S.A.C.',Precio_Unitario:4.10, Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'10/06/2026'},
+      {ID_Precio:'CAT-009C',Nombre_Material:'Tablero metálico 600x400 mm',         Nombre_Proveedor:'Intega Distribución S.A.C.',Precio_Unitario:420,  Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'10/06/2026'},
+      {ID_Precio:'CAT-009D',Nombre_Material:'Contactor 40A 24VDC',                 Nombre_Proveedor:'Intega Distribución S.A.C.',Precio_Unitario:232,  Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'10/06/2026'},
+      {ID_Precio:'CAT-009E',Nombre_Material:'PLC Siemens S7-1200',                 Nombre_Proveedor:'Intega Distribución S.A.C.',Precio_Unitario:2050, Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'10/06/2026'},
+      {ID_Precio:'CAT-009F',Nombre_Material:'Cable de control 12x1.5mm²',          Nombre_Proveedor:'Intega Distribución S.A.C.',Precio_Unitario:9.20, Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'10/06/2026'},
+      {ID_Precio:'CAT-009G',Nombre_Material:'Riel DIN 35mm',                       Nombre_Proveedor:'Intega Distribución S.A.C.',Precio_Unitario:12.50,Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'10/06/2026'},
+      {ID_Precio:'CAT-009H',Nombre_Material:'Transformador de corriente 100/5A',   Nombre_Proveedor:'Intega Distribución S.A.C.',Precio_Unitario:115,  Fecha_Vigencia_Inicio:'01/06/2026',Fecha_Vigencia_Fin:'31/08/2026',Estado_Vigencia:'Vigente',Última_Actualización:'10/06/2026'},
+      ];
+      if (S.user&&S.user.rol==='Proveedor'&&S.user.idProveedor) {
+        const prov = PROVEEDORES.find(p=>p.ID_Proveedor===S.user.idProveedor);
+        return prov ? ALL_CAT.filter(c=>c.Nombre_Proveedor===prov.Nombre_Empresa) : ALL_CAT;
+      }
+      return ALL_CAT;
+    },
+    getItemsReceta: p => ITEMS_RECETA[(p&&p.idReceta)||''] || [],
+    getProveedores: ()=> PROVEEDORES,
+    getRecepciones: ()=> RECEPCIONES,
+    getMateriales:  ()=> MATERIALES,
+    getInventario:  ()=> INVENTARIO,
+    getItemsOC: p => {
+      const id = (p&&p.idOC)||'';
+      return ITEMS_OC[id] || [];
+    },
+    getDetalleOC: p => {
+      const id = (p&&p.idOC)||'';
+      const oc = OC_LIST.find(o=>o.ID_OC===id)||{};
+      const rawItems = ITEMS_OC[id]||[];
+      const cat = [
+        {Nombre_Material:'Interruptor Termomagnético 20A',Precio_Unitario:42,Unidad:'Unidad'},
+        {Nombre_Material:'Cable THW 4mm²',Precio_Unitario:3.20,Unidad:'Metro'},
+        {Nombre_Material:'Tablero metálico 600x400 mm',Precio_Unitario:355,Unidad:'Unidad'},
+        {Nombre_Material:'Contactor 40A 24VDC',Precio_Unitario:198,Unidad:'Unidad'},
+        {Nombre_Material:'PLC Siemens S7-1200',Precio_Unitario:1790,Unidad:'Unidad'},
+        {Nombre_Material:'Cable de control 12x1.5mm²',Precio_Unitario:7.8,Unidad:'Metro'},
+        {Nombre_Material:'Riel DIN 35mm',Precio_Unitario:10.8,Unidad:'Metro'},
+        {Nombre_Material:'Transformador de corriente 100/5A',Precio_Unitario:90,Unidad:'Unidad'},
+      ];
+      const items = rawItems.map(it=>{
+        const ref = cat.find(c=>c.Nombre_Material===it.Nombre_Material)||{};
+        return {...it, Precio_Unitario: ref.Precio_Unitario||0, Unidad: it.Unidad||ref.Unidad||'Unidad'};
+      });
+      return {oc, items};
+    },
+    crearReceta:        ()=>({ok:true,idReceta:'REC-DEMO-'+Date.now()}),
+    aceptarCotizacion:  ()=>({ok:true}),
     rechazarCotizacion: ()=>({ok:true}),
-    aprobarOC: ()=>({ok:true}),
-    rechazarOC: ()=>({ok:true}),
-    actualizarPrecio: ()=>({ok:true}),
+    aprobarOC:          ()=>({ok:true}),
+    rechazarOC:         ()=>({ok:true}),
+    actualizarPrecio:   ()=>({ok:true}),
     actualizarConfiguracion: ()=>({ok:true}),
+    registrarRecepcion: ()=>({ok:true}),
+    generarRFQ:         ()=>({ok:true}),
+    despacharMaterial:  ()=>({ok:true}),
+    agregarPrecio:      ()=>({ok:true}),
     getConfiguracion: ()=>[
       {Clave:'UMBRAL_AUTO_APROBACION',   Valor:'2000',                      Descripcion:'Monto maximo para auto-aprobacion'},
       {Clave:'UMBRAL_APROBACION_SIMPLE', Valor:'10000',                     Descripcion:'Monto para aprobacion simple de Finanzas'},
@@ -1393,7 +2299,11 @@ function demoData(fn, params, cb) {
       {Clave:'MONEDA',                   Valor:'PEN',                       Descripcion:'Codigo ISO de la moneda'},
     ],
   };
-  setTimeout(()=>cb((DEMO[fn]||(() => ({ok:true})))(params)), 350);
+  const result = fn==='getOrdenes'   ? DEMO.getOrdenes(params)
+               : fn==='getItemsOC'   ? DEMO.getItemsOC(params)
+               : fn==='getDetalleOC' ? DEMO.getDetalleOC(params)
+               : (DEMO[fn]||(() => ({ok:true})))(params);
+  setTimeout(()=>cb(result), 350);
 }
 </script>
 </body>
